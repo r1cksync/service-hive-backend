@@ -1,36 +1,82 @@
-This is a [Next.js](https://nextjs.org) project bootstrapped with [`create-next-app`](https://nextjs.org/docs/app/api-reference/cli/create-next-app).
+# SlotSwapper Backend API
 
-## Getting Started
+Next.js API backend for SlotSwapper application with MongoDB and AI integration.
 
-First, run the development server:
+## 🚀 Getting Started
 
+### Installation
 ```bash
-npm run dev
-# or
-yarn dev
-# or
-pnpm dev
-# or
-bun dev
+npm install
 ```
 
-Open [http://localhost:3000](http://localhost:3000) with your browser to see the result.
+### Environment Variables
+Create `.env.local` file:
+```env
+MONGODB_URI=mongodb+srv://username:password@cluster.mongodb.net/slotswapper?retryWrites=true&w=majority
+JWT_SECRET=your_super_secret_jwt_key_change_in_production
+GROQ_API_KEY=gsk_your_groq_api_key_here
+```
 
-You can start editing the page by modifying `app/page.tsx`. The page auto-updates as you edit the file.
+### Development
+```bash
+npm run dev
+```
+Server runs on http://localhost:3001
 
-This project uses [`next/font`](https://nextjs.org/docs/app/building-your-application/optimizing/fonts) to automatically optimize and load [Geist](https://vercel.com/font), a new font family for Vercel.
+### Production Build
+```bash
+npm run build
+npm start
+```
 
-## Learn More
+## 📁 Project Structure
 
-To learn more about Next.js, take a look at the following resources:
+```
+backend/
+├── app/api/          # API routes
+│   ├── auth/         # Authentication
+│   ├── events/       # Event CRUD
+│   ├── swap-*/       # Swap logic
+│   └── ai/           # AI features
+├── lib/              # Utilities
+├── models/           # Mongoose models
+└── package.json
+```
 
-- [Next.js Documentation](https://nextjs.org/docs) - learn about Next.js features and API.
-- [Learn Next.js](https://nextjs.org/learn) - an interactive Next.js tutorial.
+## 🔌 API Documentation
 
-You can check out [the Next.js GitHub repository](https://github.com/vercel/next.js) - your feedback and contributions are welcome!
+See main README.md for complete API documentation with request/response examples.
 
-## Deploy on Vercel
+### Quick Reference
 
-The easiest way to deploy your Next.js app is to use the [Vercel Platform](https://vercel.com/new?utm_medium=default-template&filter=next.js&utm_source=create-next-app&utm_campaign=create-next-app-readme) from the creators of Next.js.
+**Authentication**
+- POST `/api/auth/signup` - Register
+- POST `/api/auth/login` - Login
 
-Check out our [Next.js deployment documentation](https://nextjs.org/docs/app/building-your-application/deploying) for more details.
+**Events**
+- GET `/api/events` - List events
+- POST `/api/events` - Create event
+- PUT `/api/events/[id]` - Update event
+- DELETE `/api/events/[id]` - Delete event
+
+**Swapping**
+- GET `/api/swappable-slots` - Browse available slots
+- POST `/api/swap-request` - Create swap request
+- GET `/api/swap-requests` - View requests
+- POST `/api/swap-response/[requestId]` - Accept/Reject
+
+**AI**
+- POST `/api/ai/swap-suggestions` - Get smart suggestions
+- GET `/api/ai/schedule-analysis` - Analyze conflicts
+
+## 🛠️ Tech Stack
+
+- Next.js 16 (App Router)
+- MongoDB + Mongoose
+- JWT Authentication
+- Groq AI (llama-3.3-70b-versatile)
+- TypeScript
+
+## 📄 License
+
+MIT

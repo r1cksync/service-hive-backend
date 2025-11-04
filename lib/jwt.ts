@@ -1,7 +1,10 @@
 import jwt from 'jsonwebtoken';
 import { NextRequest } from 'next/server';
 
-const JWT_SECRET = process.env.JWT_SECRET || 'fallback-secret-change-in-production';
+// Function to get JWT_SECRET - read from env at runtime, not at module load time
+const getJwtSecret = () => {
+  return process.env.JWT_SECRET || 'fallback-secret-change-in-production';
+};
 
 export interface TokenPayload {
   userId: string;
@@ -9,12 +12,12 @@ export interface TokenPayload {
 }
 
 export function generateToken(payload: TokenPayload): string {
-  return jwt.sign(payload, JWT_SECRET, { expiresIn: '7d' });
+  return jwt.sign(payload, getJwtSecret(), { expiresIn: '7d' });
 }
 
 export function verifyToken(token: string): TokenPayload | null {
   try {
-    return jwt.verify(token, JWT_SECRET) as TokenPayload;
+    return jwt.verify(token, getJwtSecret()) as TokenPayload;
   } catch (error) {
     return null;
   }

@@ -1,3 +1,8 @@
+// CRITICAL: Load environment variables BEFORE any imports that use them
+require('dotenv').config({ path: require('path').resolve(process.cwd(), '.env.local') });
+console.log('🔧 Loaded JWT_SECRET with length:', process.env.JWT_SECRET?.length || 'undefined');
+
+// Now import modules that depend on environment variables
 import { createServer } from 'http';
 import { parse } from 'url';
 import next from 'next';

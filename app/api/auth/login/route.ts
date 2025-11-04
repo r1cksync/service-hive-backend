@@ -43,6 +43,14 @@ export async function POST(request: NextRequest) {
       email: user.email,
     });
 
+    // Masked token logging for debugging (will not log full token)
+    try {
+      const masked = typeof token === 'string' && token.length > 16 ? `${token.slice(0, 8)}...${token.slice(-8)}` : token;
+      console.log('🔑 Generated JWT token (masked):', masked);
+    } catch (e) {
+      // ignore logging errors
+    }
+
     return NextResponse.json(
       {
         message: 'Login successful',

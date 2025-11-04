@@ -1573,7 +1573,7 @@ docker build --no-cache -t slotswapper-backend .
 ## 📚 Additional Documentation
 
 - **🌐 Live Demo:** [https://service-hive-frontend.onrender.com/](https://service-hive-frontend.onrender.com/)
-- **📹 Video Walkthrough:** [Watch Demo](https://drive.google.com/file/d/1Va8poOG1W5Za0nl-MSSi8P7jeIH9aWWz/view)
+- **📹 Video Walkthrough:** [Watch Demo](https://drive.google.com/file/d/1QTS_k4f9kmv2uWEcGE0emFN4-vhAqWm0/view)
 - **💻 Frontend Repo:** [GitHub](https://github.com/r1cksync/service-hive-frontend)
 - **[Main README](../README.md)** - Full project documentation
 - **[Docker Setup Guide](../DOCKER_SETUP.md)** - Complete Docker documentation

@@ -1,11 +1,20 @@
 # 🎯 SlotSwapper Backend API
 
-Next.js API backend for SlotSwapper - Employee shift swap platform with MongoDB, WebSocket notifications, AI integration, and comprehensive testing.
+Next.js API backend for SlotSwapper - Employee shift swap platform with MongoDB, WebSocket notifications, AI-powered chat assistant, and comprehensive testing.
+
+## 🔗 Quick Links
+
+- **🌐 Live Demo:** [https://service-hive-frontend.onrender.com/](https://service-hive-frontend.onrender.com/)
+- **📹 Project Video:** [Watch Demo](https://drive.google.com/file/d/1Va8poOG1W5Za0nl-MSSi8P7jeIH9aWWz/view)
+- **💻 Frontend Repository:** [GitHub - Frontend](https://github.com/r1cksync/service-hive-frontend)
+- **🔌 Backend API:** This repository
 
 ## 📋 Table of Contents
 
 - [Getting Started](#-getting-started)
 - [Docker Setup](#-docker-setup)
+- [Real-time Notifications](#-real-time-notifications-socketio)
+- [AI Features](#-ai-features)
 - [Testing](#-testing)
 - [API Documentation](#-api-documentation)
 - [Project Structure](#-project-structure)
@@ -158,6 +167,324 @@ docker-compose ps
 ```
 
 For complete Docker documentation, see **[../DOCKER_SETUP.md](../DOCKER_SETUP.md)**.
+
+---
+
+## 🔔 Real-time Notifications (Socket.IO)
+
+SlotSwapper uses **Socket.IO** for instant, real-time notifications when swap requests are created, accepted, or rejected.
+
+### Socket.IO Server Setup
+
+The backend initializes Socket.IO with JWT authentication:
+
+```typescript
+// server.ts
+import { initializeSocket } from './lib/socket';
+
+const server = createServer(app);
+initializeSocket(server);  // Attach Socket.IO to HTTP server
+```
+
+### Authentication Flow
+
+1. **Client connects** with JWT token:
+```javascript
+const socket = io('http://localhost:3001', {
+  auth: {
+    token: localStorage.getItem('token')  // JWT from login
+  }
+});
+```
+
+2. **Server validates token** and joins user to their room:
+```typescript
+// lib/socket.ts
+io.use((socket, next) => {
+  const token = socket.handshake.auth.token;
+  const decoded = jwt.verify(token, JWT_SECRET);
+  socket.data.userId = decoded.userId;
+  socket.join(`user:${decoded.userId}`);  // User-specific room
+  next();
+});
+```
+
+3. **Server emits to specific users**:
+```typescript
+// Send notification only to target user
+io.to(`user:${targetUserId}`).emit('swap-request-created', {
+  swapRequest,
+  message: `${requester.name} wants to swap shifts!`
+});
+```
+
+### Socket Events
+
+#### 1. `swap-request-created`
+**Trigger:** Someone requests to swap with your shift  
+**Recipient:** Target user (person being asked)
+
+```javascript
+socket.on('swap-request-created', (data) => {
+  // data = { swapRequest, requesterSlot, targetSlot }
+  showNotification(`${data.requesterName} wants to swap shifts!`);
+});
+```
+
+#### 2. `swap-request-accepted`
+**Trigger:** Your swap request is accepted  
+**Recipient:** Original requester
+
+```javascript
+socket.on('swap-request-accepted', (data) => {
+  // data = { swapRequest, updatedEvents }
+  showNotification(`${data.targetName} accepted your swap!`);
+  refreshCalendar();  // Update UI with new shifts
+});
+```
+
+#### 3. `swap-request-rejected`
+**Trigger:** Your swap request is declined  
+**Recipient:** Original requester
+
+```javascript
+socket.on('swap-request-rejected', (data) => {
+  // data = { swapRequest }
+  showNotification(`${data.targetName} declined your swap`);
+});
+```
+
+### Frontend Integration Example
+
+```typescript
+// Frontend: contexts/NotificationContext.tsx
+import { io } from 'socket.io-client';
+import toast from 'react-hot-toast';
+
+const socket = io(backendUrl, {
+  auth: { token: localStorage.getItem('token') },
+  reconnection: true,
+  reconnectionAttempts: 5,
+  transports: ['websocket', 'polling']
+});
+
+socket.on('swap-request-created', (data) => {
+  toast.custom((t) => (
+    <div className="bg-white shadow-lg rounded-lg p-4">
+      <p className="font-medium">New Swap Request</p>
+      <p className="text-sm">Someone wants to swap {data.targetSlotTitle}</p>
+      <button onClick={() => router.push('/requests')}>
+        View Request
+      </button>
+    </div>
+  ));
+});
+```
+
+### Socket Features
+
+✅ **JWT Authentication** - Secure socket connections  
+✅ **Room-based Messaging** - Target specific users  
+✅ **Auto-reconnection** - Handles disconnects gracefully  
+✅ **CORS Configuration** - Allows frontend connection  
+✅ **Transports** - WebSocket with polling fallback  
+✅ **User Isolation** - Each user in private room  
+
+### Socket Server Configuration
+
+```typescript
+// lib/socket.ts
+const io = new SocketIOServer(server, {
+  cors: {
+    origin: [frontendUrl, 'http://localhost:3000'],
+    methods: ['GET', 'POST'],
+    credentials: true,
+  },
+  transports: ['websocket', 'polling'],
+  pingTimeout: 60000,
+  pingInterval: 25000,
+});
+```
+
+### Troubleshooting Socket Connections
+
+**Connection fails:**
+- Verify JWT token is valid and not expired
+- Check CORS origin matches frontend URL
+- Ensure backend server is running on correct port
+
+**Token authentication errors:**
+- Confirm JWT_SECRET is consistent across app
+- Check token format: plain JWT string (no "Bearer " prefix in socket auth)
+- Token should be from `/api/auth/login` response
+
+**Events not received:**
+- Verify user is authenticated and joined room
+- Check socket connection status: `socket.connected`
+- Look for server logs: `Socket authenticated for user: email`
+
+---
+
+## 🤖 AI Features
+
+SlotSwapper includes powerful AI features powered by **Groq LLM** (llama-3.3-70b-versatile).
+
+### 1. AI Chat Assistant
+
+**Endpoint:** `POST /api/ai/chat`
+
+Interactive chatbot that understands your schedule and helps with:
+- Finding optimal swap opportunities
+- Answering questions about your calendar
+- Suggesting best times for activities
+- Analyzing marketplace availability
+- Providing personalized scheduling advice
+
+**How it works:**
+1. Fetches your complete schedule (events, swappable slots)
+2. Retrieves marketplace data (available swaps from others)
+3. Sends context + your question to Groq LLM
+4. AI analyzes and responds with personalized suggestions
+
+**Example Conversation:**
+```
+User: "What's the best swap for my schedule this week?"
+
+AI: "I see you have:
+- 3 morning shifts (8 AM - 4 PM)
+- 1 evening shift (4 PM - 12 AM) on Wednesday
+
+Based on marketplace availability, I recommend swapping your Wednesday 
+evening shift with Jane's Thursday morning shift. This would give you:
+✅ 4 consecutive morning shifts (better routine)
+✅ No evening shift this week (better work-life balance)
+✅ Same total hours
+
+Compatibility score: 95%"
+```
+
+**Context Provided to AI:**
+- Your upcoming events with dates/times
+- Your swappable slots
+- Marketplace slots from other users
+- Event statuses (BUSY, SWAPPABLE, SWAP_PENDING)
+- User names for marketplace slots
+
+**AI System Prompt:**
+```
+You are a helpful AI scheduling assistant for ServiceHive.
+Help users optimize schedules, find swap opportunities, and answer 
+questions about their calendar. Consider time conflicts, preferences, 
+and work-life balance.
+```
+
+### 2. Smart Swap Suggestions
+
+**Endpoint:** `POST /api/ai/swap-suggestions`
+
+AI analyzes compatibility and recommends best swap matches:
+
+```json
+{
+  "suggestions": [
+    {
+      "targetSlotId": "...",
+      "mySlotId": "...",
+      "compatibilityScore": 95,
+      "reason": "Same duration (8 hours), adjacent time slot, 
+                 improves your schedule consistency",
+      "targetSlot": { /* event details */ },
+      "mySlot": { /* your event */ }
+    }
+  ]
+}
+```
+
+**AI Analysis Factors:**
+- Duration matching
+- Time of day preferences  
+- Day of week patterns
+- Schedule consistency
+- Work-life balance
+- Historical patterns
+
+### 3. Schedule Conflict Analysis
+
+**Endpoint:** `GET /api/ai/schedule-analysis`
+
+AI scans for issues and suggests improvements:
+
+```json
+{
+  "conflictsFound": 2,
+  "warnings": [
+    {
+      "type": "OVERLAP",
+      "severity": "HIGH",
+      "message": "Events overlap by 2 hours"
+    },
+    {
+      "type": "BACK_TO_BACK",
+      "severity": "MEDIUM",
+      "message": "No break between shifts (16 hours continuous)"
+    }
+  ],
+  "recommendations": [
+    "Consider swapping one overlapping shift",
+    "Add break between back-to-back shifts"
+  ]
+}
+```
+
+### AI Implementation Details
+
+**Context Building:**
+```typescript
+// app/api/ai/chat/route.ts
+const myEvents = await Event.find({ userId: user.userId });
+const marketplaceEvents = await Event.find({ 
+  userId: { $ne: user.userId }, 
+  status: 'SWAPPABLE' 
+});
+
+const context = `
+USER'S SCHEDULE:
+${myEvents.map(e => `- ${e.title} | ${e.startTime} | ${e.status}`)}
+
+MARKETPLACE:
+${marketplaceEvents.map(e => `- ${e.title} | ${e.startTime} | By: ${e.owner.name}`)}
+`;
+```
+
+**Groq API Call:**
+```typescript
+const completion = await groq.chat.completions.create({
+  messages: [
+    { role: 'system', content: systemPrompt },
+    { role: 'user', content: `${context}\n\nUser: ${message}` }
+  ],
+  model: 'llama-3.3-70b-versatile',
+  temperature: 0.7,
+  max_tokens: 1024
+});
+```
+
+### AI Features Summary
+
+✅ **Context-Aware** - Knows your schedule and marketplace  
+✅ **Personalized** - Suggestions based on your patterns  
+✅ **Conversational** - Natural language interface  
+✅ **Real-time** - Analyzes current data  
+✅ **Actionable** - Provides specific recommendations  
+✅ **Smart Matching** - Compatibility scoring  
+
+### Environment Setup for AI
+
+```env
+GROQ_API_KEY=your-groq-api-key-from-console-groq-com
+```
+
+Get your API key: [https://console.groq.com](https://console.groq.com)
 
 ---
 
@@ -812,7 +1139,7 @@ Authorization: Bearer <jwt_token>
 #### 11. AI Chat Assistant
 **Endpoint:** `POST /api/ai/chat`
 
-**Description:** Interactive AI chatbot for platform guidance and support.
+**Description:** Interactive AI chatbot with full context of your schedule and marketplace.
 
 **Headers:**
 ```
@@ -822,21 +1149,42 @@ Authorization: Bearer <jwt_token>
 **Request Body:**
 ```json
 {
-  "message": "How do I swap my shift with another employee?"
+  "message": "What's the best swap for my schedule?"
 }
 ```
 
 **Success Response (200):**
 ```json
 {
-  "response": "To swap your shift, follow these steps:\n1. Mark your shift as 'Swappable' in your events\n2. Browse available shifts in the marketplace\n3. Select a shift you want and create a swap request\n4. Wait for the other user to accept\n5. Once accepted, shifts are automatically exchanged!"
+  "response": "Based on your schedule, I recommend swapping your Wednesday evening shift (4PM-12AM) with Jane's Thursday morning shift (8AM-4PM). This would give you 4 consecutive morning shifts this week, improving your routine and work-life balance. Compatibility score: 95%"
 }
 ```
 
+**AI Capabilities:**
+- Analyzes your complete schedule (all events)
+- Reviews marketplace opportunities (swappable slots)
+- Considers time conflicts and patterns
+- Provides personalized recommendations
+- Answers natural language questions
+
+**Context Provided:**
+- Your upcoming events with dates/times/status
+- Your swappable slots
+- Marketplace slots from other users (with owner names)
+- Current date/time for relevance
+
+**Example Questions:**
+- "What's the best swap for my schedule?"
+- "Show me all available slots this week"
+- "When do I have free time tomorrow?"
+- "Help me optimize my schedule"
+- "Are there any conflicts in my calendar?"
+
 **Features:**
 - Powered by Groq LLM (llama-3.3-70b-versatile)
-- Context-aware responses about platform features
-- Helps with troubleshooting and guidance
+- Context-aware responses about your specific data
+- Conversational interface
+- Real-time analysis
 
 **Error Responses:**
 - `400` - Missing message
@@ -1011,13 +1359,18 @@ socket.on('swap-request-rejected', (data) => {
 - **Middleware** - Route protection and token validation
 
 ### Real-time Communication
-- **Socket.IO 4.x** - WebSocket server
-- **JWT WebSocket Auth** - Secure socket connections
-- **Room-based Messaging** - Targeted notifications
+- **Socket.IO 4.x** - WebSocket server with JWT authentication
+- **Real-time Notifications** - Instant swap request updates
+- **Room-based Messaging** - Targeted user notifications
+- **Auto-reconnection** - Handles network interruptions
+- **CORS Support** - Secure cross-origin WebSocket connections
 
 ### AI Integration
-- **Groq SDK** - AI API client
-- **llama-3.3-70b-versatile** - LLM model for chat and suggestions
+- **Groq SDK 0.34.0** - AI API client for LLM integration
+- **llama-3.3-70b-versatile** - Advanced LLM model
+- **Context-Aware Chat** - AI with full schedule knowledge
+- **Smart Suggestions** - Compatibility scoring and recommendations
+- **Natural Language** - Conversational interface
 
 ### Testing
 - **Jest 30.2.0** - Testing framework
@@ -1038,14 +1391,17 @@ socket.on('swap-request-rejected', (data) => {
 
 ## 🔐 Security Features
 
-- ✅ **JWT Authentication** - Secure token-based auth
-- ✅ **Password Hashing** - bcrypt with salt rounds
-- ✅ **Protected Routes** - Middleware validation
+- ✅ **JWT Authentication** - Secure token-based auth with 7-day expiration
+- ✅ **Password Hashing** - bcrypt with 10 salt rounds
+- ✅ **Protected Routes** - Middleware validation on all authenticated endpoints
 - ✅ **WebSocket Auth** - JWT validation for socket connections
-- ✅ **CORS Configuration** - Controlled origin access
-- ✅ **Environment Variables** - Sensitive data protection
+- ✅ **Token Normalization** - Strips "Bearer " prefix, handles whitespace
+- ✅ **Dynamic Secret Loading** - Environment-based JWT_SECRET at runtime
+- ✅ **CORS Configuration** - Controlled origin access for API and WebSocket
+- ✅ **Environment Variables** - Sensitive data protection via .env files
 - ✅ **Field Exclusion** - Password field hidden by default in queries
 - ✅ **Input Validation** - Mongoose schema validation
+- ✅ **User Isolation** - Socket rooms ensure private notifications
 
 ---
 
@@ -1216,6 +1572,9 @@ docker build --no-cache -t slotswapper-backend .
 
 ## 📚 Additional Documentation
 
+- **🌐 Live Demo:** [https://service-hive-frontend.onrender.com/](https://service-hive-frontend.onrender.com/)
+- **📹 Video Walkthrough:** [Watch Demo](https://drive.google.com/file/d/1Va8poOG1W5Za0nl-MSSi8P7jeIH9aWWz/view)
+- **💻 Frontend Repo:** [GitHub](https://github.com/r1cksync/service-hive-frontend)
 - **[Main README](../README.md)** - Full project documentation
 - **[Docker Setup Guide](../DOCKER_SETUP.md)** - Complete Docker documentation
 - **[Testing & Notifications](../TESTING_AND_NOTIFICATIONS.md)** - Testing and WebSocket guide
@@ -1250,6 +1609,11 @@ docker build --no-cache -t slotswapper-backend .
 | `/api/ai/swap-suggestions` | POST | Yes | AI recommendations |
 | `/api/ai/schedule-analysis` | GET | Yes | Conflict detection |
 
+**WebSocket Events:**
+- `swap-request-created` - Real-time notification when someone requests your shift
+- `swap-request-accepted` - Instant update when your swap is accepted
+- `swap-request-rejected` - Notification when swap is declined
+
 ---
 
 ## 📄 License
@@ -1259,5 +1623,10 @@ MIT
 ---
 
 **Built with ❤️ for ServiceHive**
+
+**🔗 Project Links:**
+- **Live App:** [https://service-hive-frontend.onrender.com/](https://service-hive-frontend.onrender.com/)
+- **Video Demo:** [Watch on Drive](https://drive.google.com/file/d/1Va8poOG1W5Za0nl-MSSi8P7jeIH9aWWz/view)
+- **Frontend:** [GitHub Repo](https://github.com/r1cksync/service-hive-frontend)
 
 For detailed information, see the [main documentation](../README.md).

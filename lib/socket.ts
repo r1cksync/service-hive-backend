@@ -13,6 +13,8 @@ export const initializeSocket = (server: HTTPServer) => {
       methods: ['GET', 'POST'],
       credentials: true,
     },
+    // Allow connections from any origin in production if FRONTEND_URL includes multiple domains
+    allowEIO3: true,
   });
 
   // Authentication middleware
@@ -35,13 +37,13 @@ export const initializeSocket = (server: HTTPServer) => {
 
   io.on('connection', (socket) => {
     const userId = socket.data.userId;
-    console.log(`User connected: ${userId}`);
+    console.log(`User connected: ${userId} at ${new Date().toISOString()}`);
 
     // Join user-specific room for targeted notifications
     socket.join(`user:${userId}`);
 
     socket.on('disconnect', () => {
-      console.log(`User disconnected: ${userId}`);
+      console.log(`User disconnected: ${userId} at ${new Date().toISOString()}`);
     });
   });
 
